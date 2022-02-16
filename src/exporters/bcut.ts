@@ -1,37 +1,38 @@
 import fs from "fs/promises";
 import path from "path";
 
+import sharp from "sharp";
+
 import { exportConfig } from "../config";
 import { Size } from "../utils";
 
 import type { Exporter, StickerPackConfigBase } from "./types";
 
-// https://core.telegram.org/stickers#static-stickers
+// https://member.bilibili.com/platform/upload/sticker
 const preset = {
-  maxSize: 500,
-  padding: 15,
-  iconSize: 100,
+  maxSize: 750,
 };
 
-export interface TelegramStickerPackConfig extends StickerPackConfigBase {
-  type: "telegram";
+export interface BCutStickerPackConfig extends StickerPackConfigBase {
+  type: "bcut";
+  border?: number;
 }
 
-export interface ResolvedTelegramStickerPackConfig
-  extends TelegramStickerPackConfig {
+export interface ResolvedBCutStickerPackConfig extends BCutStickerPackConfig {
   name: string;
   description: string;
+
+  border: number;
 
   destDir: string;
   dests: {
     stickers: string;
-    icon: string;
   };
 }
 
 const resolveConfig = (
-  config: TelegramStickerPackConfig
-): ResolvedTelegramStickerPackConfig => {
+  config: BCutStickerPackConfig
+): ResolvedBCutStickerPackConfig => {
   if (!exportConfig.destDir) throw "outputDir undefined";
   const destDir = path.join(
     exportConfig.destDir,
@@ -41,37 +42,33 @@ const resolveConfig = (
     ...config,
     name: config.name || exportConfig.name,
     description: config.description || exportConfig.description,
+    border: config.border || 0,
     destDir,
     dests: {
       stickers: path.join(destDir, "stickers"),
-      icon: path.join(destDir, "icon.png"),
     },
   };
 };
 
-export const telegramExplorter: Exporter<TelegramStickerPackConfig> = {
+export const bcutExplorter: Exporter<BCutStickerPackConfig> = {
   init: async (config, stickers, context) => {
     const ec = resolveConfig(config);
 
     await fs.mkdir(ec.destDir, { recursive: true });
     await fs.mkdir(ec.dests.stickers, { recursive: true });
 
-    (await context.icon.containTransform({ size: new Size(preset.iconSize) }))
-      .toFormat("png")
-      .toFile(ec.dests.icon);
-
     await fs.writeFile(
       path.join(ec.destDir, "README.txt"),
-      `Telegram Stickers
+      `B站贴纸
 
-https://telegram.me/stickers
+https://member.bilibili.com/platform/upload/sticker
 
-Name：${ec.name}
-Desctiption：${ec.description}
+名称：${ec.name}
+描述：${ec.description}
 
-DebugInfo：${JSON.stringify(ec)}
+调试信息：${JSON.stringify(ec)}
 
-StickerList：
+表情列表：
 
 ${stickers.map((i) => `${i.index}. ${i.name}`).join("\n")}
 `
@@ -79,15 +76,18 @@ ${stickers.map((i) => `${i.index}. ${i.name}`).join("\n")}
   },
   async export(config, sticker, workbench) {
     const ec = resolveConfig(config);
-    const index = `${sticker.index}`.padStart(2, "0");
 
-    const stickerSharp = await workbench.containTransform({
-      size: new Size(preset.maxSize),
-      padding: preset.padding,
+    const maxSize = new Size(preset.maxSize);
+
+    const stickerSharp = await workbench.transform({
+      border: ec.border,
+      maxSize,
+      heroSize: maxSize,
     });
 
     await stickerSharp
-      .toFormat("png")
-      .toFile(path.join(ec.dests.stickers, `${index}.png`));
+      .resize({ ...maxSize, background: "transparent" })
+      .toFormat("gif")
+      .toFile(path.join(ec.dests.stickers, `${sticker.name}.png`));
   },
 };

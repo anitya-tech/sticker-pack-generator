@@ -1,17 +1,23 @@
 import fs from "fs/promises";
 import path from "path";
 
+import sharp from "sharp";
+
 import { exportConfig } from "../config";
 import { Size } from "../utils";
 
 import type { Exporter, StickerPackConfigBase } from "./types";
 
+// https://sticker.weixin.qq.com/cgi-bin/mmemoticon-bin/readtemplate?t=guide/index.html#/makingSpecifications#specifications_stickers
 const preset = {
   quantities: [16, 24],
   border: 2,
   maxSize: 240,
   heroSize: 230,
   thumbnailSize: 120,
+  bannerSize: { width: 750, height: 400 },
+  iconSize: 50,
+  coverSize: 240,
 };
 
 export interface WechatStickerPackConfig extends StickerPackConfigBase {
@@ -61,7 +67,7 @@ const resolveConfig = (
 };
 
 export const wechatExplorter: Exporter<WechatStickerPackConfig> = {
-  init: async (config, stickers) => {
+  init: async (config, stickers, context) => {
     if (!preset.quantities.includes(stickers.length))
       throw `${config.type} stickers number must be ${preset.quantities.join(
         ", "
@@ -71,6 +77,19 @@ export const wechatExplorter: Exporter<WechatStickerPackConfig> = {
     await fs.mkdir(ec.destDir, { recursive: true });
     await fs.mkdir(ec.dests.stickers, { recursive: true });
     await fs.mkdir(ec.dests.thumbnail, { recursive: true });
+
+    (await context.icon.containTransform({ size: new Size(preset.iconSize) }))
+      .toFormat("png")
+      .toFile(ec.dests.icon);
+
+    (await context.cover.containTransform({ size: new Size(preset.coverSize) }))
+      .toFormat("png")
+      .toFile(ec.dests.cover);
+
+    await sharp(context.banner.buffer)
+      .resize({ ...preset.bannerSize, fit: "cover" })
+      .toFormat("png")
+      .toFile(ec.dests.banner);
 
     await fs.writeFile(
       path.join(ec.destDir, "README.txt"),

@@ -6,34 +6,37 @@ import { Size } from "../utils";
 
 import type { Exporter, StickerPackConfigBase } from "./types";
 
-// https://creator.line.me/en/guideline/sticker/
+// https://faq.whatsapp.com/general/how-to-create-stickers-for-whatsapp/?lang=en
 const preset = {
-  quantities: [8, 16, 24, 32, 40],
-  maxSize: { width: 370, height: 320 },
-  padding: 10,
-  coverSize: 240,
-  iconSize: { width: 96, height: 74 },
+  quantities: [16, 24],
+  border: 8,
+  maxSize: 512,
+  heroSize: 512 - 16 * 2,
+  iconSize: 96,
 };
 
-export interface LineStickerPackConfig extends StickerPackConfigBase {
-  type: "line";
+export interface WhatsappStickerPackConfig extends StickerPackConfigBase {
+  type: "whatsapp";
+  border?: number;
 }
 
-export interface ResolvedLineStickerPackConfig extends LineStickerPackConfig {
+export interface ResolvedWhatsappStickerPackConfig
+  extends WhatsappStickerPackConfig {
   name: string;
   description: string;
+
+  border: number;
 
   destDir: string;
   dests: {
     stickers: string;
-    cover: string;
     icon: string;
   };
 }
 
 const resolveConfig = (
-  config: LineStickerPackConfig
-): ResolvedLineStickerPackConfig => {
+  config: WhatsappStickerPackConfig
+): ResolvedWhatsappStickerPackConfig => {
   if (!exportConfig.destDir) throw "outputDir undefined";
   const destDir = path.join(
     exportConfig.destDir,
@@ -43,22 +46,21 @@ const resolveConfig = (
     ...config,
     name: config.name || exportConfig.name,
     description: config.description || exportConfig.description,
+    border: config.border || preset.border,
     destDir,
     dests: {
       stickers: path.join(destDir, "stickers"),
-      cover: path.join(destDir, "main.png"),
-      icon: path.join(destDir, "chat-thumbnail-icon.png"),
+      icon: path.join(destDir, "icon.png"),
     },
   };
 };
 
-export const lineExplorter: Exporter<LineStickerPackConfig> = {
+export const whatsappExplorter: Exporter<WhatsappStickerPackConfig> = {
   init: async (config, stickers, context) => {
     if (!preset.quantities.includes(stickers.length))
       throw `${config.type} stickers number must be ${preset.quantities.join(
         ", "
       )}, got ${stickers.length}`;
-
     const ec = resolveConfig(config);
 
     await fs.mkdir(ec.destDir, { recursive: true });
@@ -68,15 +70,11 @@ export const lineExplorter: Exporter<LineStickerPackConfig> = {
       .toFormat("png")
       .toFile(ec.dests.icon);
 
-    (await context.cover.containTransform({ size: new Size(preset.coverSize) }))
-      .toFormat("png")
-      .toFile(ec.dests.cover);
-
     await fs.writeFile(
       path.join(ec.destDir, "README.txt"),
-      `Line Stickers
+      `Whatsapp Stickers
 
-https://creator.line.me/
+https://faq.whatsapp.com/general/how-to-create-stickers-for-whatsapp
 
 Name：${ec.name}
 Desctiption：${ec.description}
@@ -94,12 +92,16 @@ ${stickers.map((i) => `${i.index}. ${i.name}`).join("\n")}
 
     const index = `${sticker.index}`.padStart(2, "0");
 
-    const stickerSharp = await workbench.containTransform({
-      size: new Size(preset.maxSize),
-      padding: preset.padding,
-    });
+    const maxSize = new Size(preset.maxSize);
+    const heroSize = new Size(preset.heroSize);
 
+    const stickerSharp = await workbench.transform({
+      border: ec.border,
+      maxSize,
+      heroSize,
+    });
     await stickerSharp
+      .resize({ ...maxSize, background: "transparent" })
       .toFormat("png")
       .toFile(path.join(ec.dests.stickers, `${index}.png`));
   },

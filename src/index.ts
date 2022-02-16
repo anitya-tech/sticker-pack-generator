@@ -7,6 +7,7 @@ import { MultiBar } from "cli-progress";
 
 import { exportConfig, stickersDir } from "./config";
 import { resolveExporter } from "./exporters";
+import { getMetaImageContext } from "./meta-image-context";
 import { OriginStickerMeta } from "./types";
 import { WorkerOutput } from "./worker";
 
@@ -24,8 +25,9 @@ const start = async () => {
 
   const exporters = exportConfig.exports.map((i) => resolveExporter(i));
 
+  const context = await getMetaImageContext();
   await Promise.all(
-    exporters.map(([exporter, ec]) => exporter.init(ec, stickers))
+    exporters.map(([exporter, ec]) => exporter.init(ec, stickers, context))
   );
 
   console.log("Sticker Export Start");

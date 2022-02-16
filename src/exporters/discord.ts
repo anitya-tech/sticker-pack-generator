@@ -6,34 +6,30 @@ import { Size } from "../utils";
 
 import type { Exporter, StickerPackConfigBase } from "./types";
 
-// https://creator.line.me/en/guideline/sticker/
+// https://support.discord.com/hc/en-us/articles/360036479811-Custom-Emojis
 const preset = {
-  quantities: [8, 16, 24, 32, 40],
-  maxSize: { width: 370, height: 320 },
-  padding: 10,
-  coverSize: 240,
-  iconSize: { width: 96, height: 74 },
+  maxSize: 250,
+  padding: 8,
 };
 
-export interface LineStickerPackConfig extends StickerPackConfigBase {
-  type: "line";
+export interface DiscordStickerPackConfig extends StickerPackConfigBase {
+  type: "discord";
 }
 
-export interface ResolvedLineStickerPackConfig extends LineStickerPackConfig {
+export interface ResolvedDiscordStickerPackConfig
+  extends DiscordStickerPackConfig {
   name: string;
   description: string;
 
   destDir: string;
   dests: {
     stickers: string;
-    cover: string;
-    icon: string;
   };
 }
 
 const resolveConfig = (
-  config: LineStickerPackConfig
-): ResolvedLineStickerPackConfig => {
+  config: DiscordStickerPackConfig
+): ResolvedDiscordStickerPackConfig => {
   if (!exportConfig.destDir) throw "outputDir undefined";
   const destDir = path.join(
     exportConfig.destDir,
@@ -46,37 +42,22 @@ const resolveConfig = (
     destDir,
     dests: {
       stickers: path.join(destDir, "stickers"),
-      cover: path.join(destDir, "main.png"),
-      icon: path.join(destDir, "chat-thumbnail-icon.png"),
     },
   };
 };
 
-export const lineExplorter: Exporter<LineStickerPackConfig> = {
-  init: async (config, stickers, context) => {
-    if (!preset.quantities.includes(stickers.length))
-      throw `${config.type} stickers number must be ${preset.quantities.join(
-        ", "
-      )}, got ${stickers.length}`;
-
+export const discordExplorter: Exporter<DiscordStickerPackConfig> = {
+  init: async (config, stickers) => {
     const ec = resolveConfig(config);
 
     await fs.mkdir(ec.destDir, { recursive: true });
     await fs.mkdir(ec.dests.stickers, { recursive: true });
 
-    (await context.icon.containTransform({ size: new Size(preset.iconSize) }))
-      .toFormat("png")
-      .toFile(ec.dests.icon);
-
-    (await context.cover.containTransform({ size: new Size(preset.coverSize) }))
-      .toFormat("png")
-      .toFile(ec.dests.cover);
-
     await fs.writeFile(
       path.join(ec.destDir, "README.txt"),
-      `Line Stickers
+      `Discord Stickers
 
-https://creator.line.me/
+https://support.discord.com/hc/en-us/articles/360036479811-Custom-Emojis
 
 Name：${ec.name}
 Desctiption：${ec.description}
@@ -91,7 +72,6 @@ ${stickers.map((i) => `${i.index}. ${i.name}`).join("\n")}
   },
   async export(config, sticker, workbench) {
     const ec = resolveConfig(config);
-
     const index = `${sticker.index}`.padStart(2, "0");
 
     const stickerSharp = await workbench.containTransform({

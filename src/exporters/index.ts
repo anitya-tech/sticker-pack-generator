@@ -1,14 +1,20 @@
 import { ExportConfig } from "../types";
 
+import { bcutExplorter } from "./bcut";
+import { discordExplorter } from "./discord";
 import { lineExplorter } from "./line";
 import { telegramExplorter } from "./telegram";
 import { Exporter, StickerPackConfigBase } from "./types";
 import { wechatExplorter } from "./wechat";
+import { whatsappExplorter } from "./whatsapp";
 
 const exporters: Record<string, Exporter<unknown>> = {
-  wechat: wechatExplorter,
+  bcut: bcutExplorter,
+  discord: discordExplorter,
   line: lineExplorter,
   telegram: telegramExplorter,
+  wechat: wechatExplorter,
+  whatsapp: whatsappExplorter,
 };
 
 export const resolveExporter = (

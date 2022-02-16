@@ -106,9 +106,9 @@ export class StickerWorkbench {
 
     return sharp(canvas.toBuffer());
   }
-  async maxSizeTransform(opts: { maxSize: Size; padding?: number }) {
+  async containTransform(opts: { size: Size; padding?: number }) {
     const padding = opts.padding ?? 0;
-    const heroSize = new Size(opts.maxSize);
+    const heroSize = new Size(opts.size);
     heroSize.width -= padding * 2;
     heroSize.height -= padding * 2;
 
@@ -119,12 +119,12 @@ export class StickerWorkbench {
     maxSize.width += padding * 2;
     maxSize.height += padding * 2;
 
-    const stickerSharp = await this.transform({
+    const sharp = await this.transform({
       border: 0,
       maxSize,
       heroSize,
     });
 
-    return stickerSharp.resize({ ...maxSize, background: "transparent" });
+    return sharp.resize({ ...maxSize, background: "transparent" });
   }
 }

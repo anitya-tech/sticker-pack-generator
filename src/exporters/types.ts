@@ -1,3 +1,4 @@
+import { MetaImageContext } from "../meta-image-context";
 import { StickerWorkbench } from "../sticker-workbench";
 import { OriginStickerMeta } from "../types";
 
@@ -10,7 +11,11 @@ export interface StickerPackConfigBase {
 }
 
 export interface Exporter<T> {
-  init(config: T, stickers: OriginStickerMeta[]): Promise<void>;
+  init(
+    config: T,
+    stickers: OriginStickerMeta[],
+    context: MetaImageContext
+  ): Promise<void>;
   export(
     config: T,
     sticker: OriginStickerMeta,

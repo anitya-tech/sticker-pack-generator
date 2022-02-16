@@ -27,15 +27,16 @@ const send = (message: WorkerOutput) =>
 
 async function handlerStickerWork({ config, sticker }: WorkerInput) {
   const workbench = new StickerWorkbench(await fs.readFile(sticker.file));
+  const total = config.exports.length;
 
   for (const [index, _ec] of config.exports.entries()) {
     const [exporter, ec] = resolveExporter(_ec);
     const work = `[${ec.name || exportConfig.name}] ${sticker.name}: ${
       ec.type
     }`;
-    await send({ work, progress: [0, config.exports.length] });
 
+    await send({ work, progress: [index, total] });
     await exporter.export(ec, sticker, workbench);
-    await send({ work, progress: [index + 1, config.exports.length] });
   }
+  await send({ work: "done", progress: [total, total] });
 }
