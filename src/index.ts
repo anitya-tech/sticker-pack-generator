@@ -66,6 +66,7 @@ const start = async () => {
 
   const _stickers = [...stickers];
   let completeCount = _stickers.length;
+
   const loop = async () => {
     const sticker = _stickers.pop();
     if (!sticker) return;
@@ -76,8 +77,7 @@ const start = async () => {
     loop();
   };
 
-  const processes = Math.ceil(os.cpus().length / 2);
-
+  const processes = os.cpus().length;
   for (let i = 0; i < processes; i++) loop();
 };
 

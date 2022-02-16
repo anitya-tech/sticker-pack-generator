@@ -24,6 +24,7 @@ export class StickerWorkbench {
         .toBuffer({ resolveWithObject: true })
         .then((o) => new ImageAnalyzer(o)));
   }
+
   async makeBorder(border: {
     size: number;
     color?: string;
@@ -31,10 +32,9 @@ export class StickerWorkbench {
   }) {
     const color = border.color || "white";
     const size = border.size;
-    const blurSize = border.blurSize ?? size * 0.8;
     const ia = await this.imageAnalyzer;
 
-    const offset = Math.floor(size + blurSize);
+    const offset = Math.floor(size * 2);
 
     const canvas = createCanvas(
       ia.info.width + offset * 2,
@@ -42,19 +42,21 @@ export class StickerWorkbench {
     );
     const ctx = canvas.getContext("2d");
 
-    ctx.fillStyle = color;
-    ctx.shadowColor = color;
-    ctx.shadowBlur = blurSize;
+    ctx.strokeStyle = color;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.lineWidth = size * 2;
 
-    const boundary = ia.getBoundary();
-
-    for (let i = 0; i < boundary.length; i += 2) {
-      const x = boundary[i];
-      const y = boundary[i + 1];
-
+    const lines = ia.getBoundaryLines();
+    for (const line of lines) {
       ctx.beginPath();
-      ctx.arc(x + offset, y + offset, size + 1, 0, 2 * Math.PI);
-      ctx.fill();
+      ctx.moveTo(line[0] + offset, line[1] + offset);
+      for (let i = 2; i < line.length; i += 2) {
+        const x = line[i];
+        const y = line[i + 1];
+        ctx.lineTo(x + offset, y + offset);
+      }
+      ctx.stroke();
     }
 
     const rectBoundary = ia.getRectBoundary();
@@ -68,7 +70,6 @@ export class StickerWorkbench {
       heroArea,
     };
   }
-
   async transform(config: StickerItemConfig) {
     const ia = await this.imageAnalyzer;
 
