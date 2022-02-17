@@ -80,12 +80,12 @@ export const buildStickerPacks = async ({
       const sticker = _stickers.pop();
       if (!sticker) return;
       await worker(sticker);
+      totalBar.increment();
       completeCount -= 1;
       if (completeCount === 0) {
         setTimeout(() => multibar.stop());
         r();
       }
-      totalBar.increment();
       loop();
     };
 
