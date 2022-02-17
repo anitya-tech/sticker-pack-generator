@@ -83,8 +83,10 @@ export const buildStickerPacks = async ({
       totalBar.increment();
       completeCount -= 1;
       if (completeCount === 0) {
-        setTimeout(() => multibar.stop());
-        r();
+        setTimeout(() => {
+          multibar.stop();
+          r();
+        });
       }
       loop();
     };
