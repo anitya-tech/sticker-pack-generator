@@ -1,51 +1,59 @@
 import childProcess from "child_process";
-import fs from "fs/promises";
 import os from "os";
 import path from "path";
 
-import { MultiBar } from "cli-progress";
-
-import { exportConfig, stickersDir } from "./config";
 import { resolveExporter } from "./exporters";
-import { getMetaImageContext } from "./meta-image-context";
-import { OriginStickerMeta } from "./types";
+import { InitHelper } from "./exporters/utils";
+import { ProgressBar } from "./progress-bar";
+import { OriginStickerInfo, ResourceProvider } from "./types";
 import { WorkerOutput } from "./worker";
 
-const start = async () => {
-  const stickerFiles = await fs.readdir(stickersDir);
-  const stickers: OriginStickerMeta[] = await Promise.all(
-    stickerFiles.map(async (filename) => {
-      const file = path.join(stickersDir, filename);
-      const match = file.match(/(\d+)\.(.+)\.(.+)/);
-      if (!match) throw `filename format error: ${file}`;
-      const [, index, name, ext] = match;
-      return { index: Number(index), file, name, ext };
+interface BuildOptions {
+  resourceProviderModule: string;
+  moduleOptions: unknown;
+  showProgress?: boolean;
+}
+
+export const buildStickerPacks = async ({
+  resourceProviderModule,
+  moduleOptions,
+  showProgress,
+}: BuildOptions) => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const Provider = require(resourceProviderModule).Provider;
+  const provider: ResourceProvider = new Provider(moduleOptions);
+
+  const info = await provider.info();
+  const exportOptions = await provider.getExportSet();
+  const stickers = await provider.listStickers();
+
+  const log = (msg: string) => console.log(`[${info.name}] ${msg}`);
+
+  const multibar = new ProgressBar(
+    "[{bar}] {percentage}% | {work} | {value}/{total}",
+    showProgress
+  );
+
+  log("StickerPack Profile Images Exporting...");
+  await Promise.all(
+    exportOptions.map(async (packOpts) => {
+      const explorter = resolveExporter(packOpts.platform);
+      if (!explorter.init) return;
+      await explorter.init(new InitHelper(provider, packOpts, stickers));
     })
   );
 
-  const exporters = exportConfig.exports.map((i) => resolveExporter(i));
-
-  const context = await getMetaImageContext();
-  await Promise.all(
-    exporters.map(([exporter, ec]) => exporter.init(ec, stickers, context))
-  );
-
-  console.log("Sticker Export Start");
-
-  const multibar = new MultiBar({
-    format: "[{bar}] {percentage}% | {work} | {value}/{total}",
-  });
-
+  log("Stickers Exporting...");
   const totalBar = multibar.create(stickers.length, 0, { work: "总进度" });
 
-  const worker = (sticker: OriginStickerMeta) => {
+  const worker = (sticker: OriginStickerInfo) => {
     const bar = multibar.create(1, 0, { work: "" });
-    const child = childProcess.fork(
-      path.join(__dirname, "worker.js"),
-      process.argv,
-      { stdio: "inherit" }
-    );
-    child.send({ config: exportConfig, sticker });
+    const child = childProcess.fork(path.join(__dirname, "worker.js"));
+    child.send({
+      resourceProviderModule,
+      moduleOptions,
+      sticker,
+    });
     child.on("message", ({ progress: [value, total], work }: WorkerOutput) => {
       bar.setTotal(total);
       bar.update(value, { work });
@@ -64,21 +72,24 @@ const start = async () => {
     });
   };
 
-  const _stickers = [...stickers];
-  let completeCount = _stickers.length;
+  await new Promise<void>((r) => {
+    const _stickers = [...stickers];
+    let completeCount = _stickers.length;
 
-  const loop = async () => {
-    const sticker = _stickers.pop();
-    if (!sticker) return;
-    await worker(sticker);
-    completeCount -= 1;
-    if (completeCount === 0) setTimeout(() => multibar.stop());
-    totalBar.increment();
-    loop();
-  };
+    const loop = async () => {
+      const sticker = _stickers.pop();
+      if (!sticker) return;
+      await worker(sticker);
+      completeCount -= 1;
+      if (completeCount === 0) {
+        setTimeout(() => multibar.stop());
+        r();
+      }
+      totalBar.increment();
+      loop();
+    };
 
-  const processes = os.cpus().length;
-  for (let i = 0; i < processes; i++) loop();
+    const processes = Math.ceil(os.cpus().length / 2);
+    for (let i = 0; i < processes; i++) loop();
+  });
 };
-
-start();

@@ -1,16 +1,17 @@
-import { createCanvas, loadImage } from "canvas";
+import { CanvasRenderingContext2D, createCanvas, loadImage } from "canvas";
 import sharp, { Sharp } from "sharp";
 
-import { ImageAnalyzer } from "./image-analyzer";
-import { Position, Rect, Size } from "./utils";
+import { ImageAnalyzer } from "./analyzer";
+import { Position, Rect, Size, Sizeable } from "./utils";
 
-export interface StickerItemConfig {
+export interface ImgTransformOptions {
   border?: number;
-  maxSize: Size;
-  heroSize: Size;
+  beforeDrawBorder?: (c: CanvasRenderingContext2D) => void;
+  maxSize: Sizeable;
+  heroSize: Sizeable;
 }
 
-export class StickerWorkbench {
+export class ImageWorkbench {
   origin: Sharp;
   private _imageAnalyzer?: Promise<ImageAnalyzer>;
   constructor(public buffer: Buffer) {
@@ -46,6 +47,7 @@ export class StickerWorkbench {
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     ctx.lineWidth = size * 2;
+    ctx.fillStyle = color;
 
     const lines = ia.getBoundaryLines();
     for (const line of lines) {
@@ -57,6 +59,7 @@ export class StickerWorkbench {
         ctx.lineTo(x + offset, y + offset);
       }
       ctx.stroke();
+      ctx.fill();
     }
 
     const rectBoundary = ia.getRectBoundary();
@@ -70,7 +73,7 @@ export class StickerWorkbench {
       heroArea,
     };
   }
-  async transform(config: StickerItemConfig) {
+  async transform(config: ImgTransformOptions) {
     const ia = await this.imageAnalyzer;
 
     const heroArea = ia.getRectBoundary();
@@ -89,14 +92,17 @@ export class StickerWorkbench {
 
     const canvas = createCanvas(canvasSize.width, canvasSize.height);
     const ctx = canvas.getContext("2d");
+    ctx.save();
 
     if (config.border) {
+      if (config.beforeDrawBorder) config.beforeDrawBorder(ctx);
       const border = await this.makeBorder({ size: config.border / ratio });
       ctx.drawImage(
         border.canvas,
         offset.x + sourceOffset.x - border.heroArea.left,
         offset.y + sourceOffset.y - border.heroArea.top
       );
+      ctx.restore();
     }
 
     ctx.drawImage(
@@ -107,7 +113,7 @@ export class StickerWorkbench {
 
     return sharp(canvas.toBuffer());
   }
-  async containTransform(opts: { size: Size; padding?: number }) {
+  async containTransform(opts: { size: Sizeable; padding?: number }) {
     const padding = opts.padding ?? 0;
     const heroSize = new Size(opts.size);
     heroSize.width -= padding * 2;

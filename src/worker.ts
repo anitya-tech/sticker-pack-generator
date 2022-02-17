@@ -1,13 +1,12 @@
-import fs from "fs/promises";
-
-import { exportConfig } from "./config";
 import { resolveExporter } from "./exporters";
-import { StickerWorkbench } from "./sticker-workbench";
-import { ExportConfig, OriginStickerMeta } from "./types";
+import { ExportHelper } from "./exporters/utils";
+import { ImageWorkbench } from "./image-work/workbench";
+import { OriginStickerInfo, ResourceProvider } from "./types";
 
 export interface WorkerInput {
-  config: ExportConfig;
-  sticker: OriginStickerMeta;
+  resourceProviderModule: string;
+  moduleOptions: unknown;
+  sticker: OriginStickerInfo;
 }
 
 export interface WorkerOutput {
@@ -25,18 +24,29 @@ const send = (message: WorkerOutput) =>
     (r) => process.send && process.send(message, undefined, undefined, r)
   );
 
-async function handlerStickerWork({ config, sticker }: WorkerInput) {
-  const workbench = new StickerWorkbench(await fs.readFile(sticker.file));
-  const total = config.exports.length;
+async function handlerStickerWork({
+  resourceProviderModule,
+  moduleOptions,
+  sticker,
+}: WorkerInput) {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const Provider = require(resourceProviderModule).Provider;
+  const provider: ResourceProvider = new Provider(moduleOptions);
 
-  for (const [index, _ec] of config.exports.entries()) {
-    const [exporter, ec] = resolveExporter(_ec);
-    const work = `[${ec.name || exportConfig.name}] ${sticker.name}: ${
-      ec.type
-    }`;
+  const exportOptions = await provider.getExportSet();
+  const workbench = new ImageWorkbench(
+    await provider.loadResource(sticker.resId)
+  );
 
+  const total = exportOptions.length;
+
+  for (const [index, packOpts] of exportOptions.entries()) {
+    const exporter = resolveExporter(packOpts.platform);
+    const work = `[${packOpts.name}] ${sticker.name}: ${packOpts.platform}`;
     await send({ work, progress: [index, total] });
-    await exporter.export(ec, sticker, workbench);
+    await exporter.export(
+      new ExportHelper(provider, packOpts, sticker, workbench)
+    );
   }
   await send({ work: "done", progress: [total, total] });
 }

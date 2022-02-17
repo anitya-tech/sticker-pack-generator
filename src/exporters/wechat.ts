@@ -1,12 +1,4 @@
-import fs from "fs/promises";
-import path from "path";
-
-import sharp from "sharp";
-
-import { exportConfig } from "../config";
-import { Size } from "../utils";
-
-import type { Exporter, StickerPackConfigBase } from "./types";
+import type { Exporter } from "./types";
 
 // https://sticker.weixin.qq.com/cgi-bin/mmemoticon-bin/readtemplate?t=guide/index.html#/makingSpecifications#specifications_stickers
 const preset = {
@@ -20,119 +12,64 @@ const preset = {
   coverSize: 240,
 };
 
-export interface WechatStickerPackConfig extends StickerPackConfigBase {
-  type: "wechat";
-  border?: number;
-}
+export const wechatExplorter: Exporter<{ border?: number }> = {
+  platform: "wechat",
+  init: async (h) => {
+    h.checkQuantities(preset.quantities);
 
-export interface ResolvedWechatStickerPackConfig
-  extends WechatStickerPackConfig {
-  name: string;
-  description: string;
+    await h
+      .icon()
+      .then((i) => i.containTransform({ size: preset.iconSize }))
+      .then((s) => h.save("", "聊天面板图标.png", s.toFormat("png")));
 
-  border: number;
+    await h
+      .cover()
+      .then((i) => i.containTransform({ size: preset.coverSize }))
+      .then((s) => h.save("", "表情封面图.png", s.toFormat("png")));
 
-  destDir: string;
-  dests: {
-    stickers: string;
-    thumbnail: string;
-    banner: string;
-    cover: string;
-    icon: string;
-  };
-}
-
-const resolveConfig = (
-  config: WechatStickerPackConfig
-): ResolvedWechatStickerPackConfig => {
-  if (!exportConfig.destDir) throw "outputDir undefined";
-  const destDir = path.join(
-    exportConfig.destDir,
-    config.destDir || config.type
-  );
-  return {
-    ...config,
-    name: config.name || exportConfig.name,
-    description: config.description || exportConfig.description,
-    border: config.border || preset.border,
-    destDir,
-    dests: {
-      stickers: path.join(destDir, "表情主图"),
-      thumbnail: path.join(destDir, "表情缩略图"),
-      banner: path.join(destDir, "详情页横幅.png"),
-      cover: path.join(destDir, "表情封面图.png"),
-      icon: path.join(destDir, "聊天面板图标.png"),
-    },
-  };
-};
-
-export const wechatExplorter: Exporter<WechatStickerPackConfig> = {
-  init: async (config, stickers, context) => {
-    if (!preset.quantities.includes(stickers.length))
-      throw `${config.type} stickers number must be ${preset.quantities.join(
-        ", "
-      )}, got ${stickers.length}`;
-    const ec = resolveConfig(config);
-
-    await fs.mkdir(ec.destDir, { recursive: true });
-    await fs.mkdir(ec.dests.stickers, { recursive: true });
-    await fs.mkdir(ec.dests.thumbnail, { recursive: true });
-
-    (await context.icon.containTransform({ size: new Size(preset.iconSize) }))
-      .toFormat("png")
-      .toFile(ec.dests.icon);
-
-    (await context.cover.containTransform({ size: new Size(preset.coverSize) }))
-      .toFormat("png")
-      .toFile(ec.dests.cover);
-
-    await sharp(context.banner.buffer)
-      .resize({ ...preset.bannerSize, fit: "cover" })
-      .toFormat("png")
-      .toFile(ec.dests.banner);
-
-    await fs.writeFile(
-      path.join(ec.destDir, "README.txt"),
-      `微信表情包
-
-https://sticker.weixin.qq.com/
-
-名称：${ec.name}
-描述：${ec.description}
-
-调试信息：${JSON.stringify(ec)}
-
-表情列表：
-
-${stickers.map((i) => `${i.index}. ${i.name}`).join("\n")}
-`
-    );
+    await h
+      .banner()
+      .then((i) =>
+        h.save(
+          "",
+          "详情页横幅.png",
+          i.origin
+            .resize({ ...preset.bannerSize, fit: "cover" })
+            .toFormat("png")
+        )
+      );
   },
-  async export(config, sticker, workbench) {
-    const ec = resolveConfig(config);
+  async export(h) {
+    const index = `${h.sticker.index}`.padStart(2, "0");
 
-    const index = `${sticker.index}`.padStart(2, "0");
-
-    const maxSize = new Size(preset.maxSize);
-    const heroSize = new Size(preset.heroSize);
-    const thumbnailSize = new Size(preset.thumbnailSize);
-
-    const stickerSharp = await workbench.transform({
-      border: ec.border,
-      maxSize,
-      heroSize,
+    const sticker = await h.workbench.transform({
+      border: h.packOpts.border || preset.border,
+      maxSize: preset.maxSize,
+      heroSize: preset.heroSize,
     });
 
-    await Promise.all([
-      stickerSharp
-        .resize({ ...maxSize, background: "transparent" })
+    await h.save(
+      "表情主图",
+      `${index}.gif`,
+      sticker
+        .resize({
+          width: preset.maxSize,
+          height: preset.maxSize,
+          background: "transparent",
+        })
         .toFormat("gif")
-        .toFile(path.join(ec.dests.stickers, `${index}.gif`)),
+    );
 
-      stickerSharp
-        .resize({ ...thumbnailSize, background: "transparent" })
+    await h.save(
+      "表情缩略图",
+      `${index}.png`,
+      sticker
+        .resize({
+          width: preset.thumbnailSize,
+          height: preset.thumbnailSize,
+          background: "transparent",
+        })
         .toFormat("png")
-        .toFile(path.join(ec.dests.thumbnail, `${index}.png`)),
-    ]);
+    );
   },
 };

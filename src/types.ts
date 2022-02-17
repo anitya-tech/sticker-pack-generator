@@ -1,16 +1,33 @@
-import type { StickerPackConfigBase } from "./exporters/types";
+import { StickerPackOptionsBase } from "./exporters/types";
 
-export interface ExportConfig {
-  destDir?: string;
+export interface OriginStickerInfo {
+  resId: string;
+  index: number;
   name: string;
-  description: string;
-  animated: boolean;
-  exports: (string | StickerPackConfigBase)[];
+  extension: "png";
 }
 
-export interface OriginStickerMeta {
-  index: number;
-  file: string;
+export interface ProfileImageIds {
+  coverId: string;
+  bannerId: string;
+  iconId: string;
+}
+
+export interface StickerSetInfo {
   name: string;
-  ext: string;
+  description: string;
+}
+
+export interface ResourceProvider {
+  info(): Promise<StickerSetInfo>;
+  listStickers(): Promise<OriginStickerInfo[]>;
+  getProfileImages(): Promise<ProfileImageIds>;
+  loadResource(redId: string): Promise<Buffer>;
+  saveResource(
+    packId: string,
+    category: string | undefined,
+    name: string,
+    data: Buffer
+  ): Promise<string>;
+  getExportSet(): Promise<StickerPackOptionsBase[]>;
 }
