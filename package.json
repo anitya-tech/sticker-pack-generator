@@ -1,6 +1,6 @@
 {
   "name": "@anitya-tech/sticker-pack-generator",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "",
   "main": "dist/index.js",
   "repository": "git@github.com:anitya-tech/sticker-pack-generator.git",
