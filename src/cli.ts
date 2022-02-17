@@ -14,15 +14,15 @@ import { buildStickerPacks } from "./";
 const program = createCommand();
 
 program
-  .option("--debug", "output extra debugging")
   .option("-c, --config <string>", "config file name in workdir")
-  .argument("<string>", "stickers workspace directory");
+  .argument(
+    "[string]",
+    "stickers workspace directory, default: current directory"
+  );
 
 program.parse(process.argv);
 
-export const workdir = path.resolve(
-  path.resolve(program.args[0]) || process.cwd()
-);
+export const workdir = path.resolve(program.args[0] || process.cwd());
 
 export const _optsSet = yaml.load(
   fs.readFileSync(
@@ -33,7 +33,7 @@ export const _optsSet = yaml.load(
 
 const optsSet = Object.entries(_optsSet).map(([name, config]) => {
   const sourceDir = path.resolve(workdir, config.sourceDir || "source");
-  const destDir = path.resolve(workdir, config.destDir || "output");
+  const destDir = path.resolve(workdir, config.destDir || name);
   config.name = config.name || name;
 
   fs.mkdirSync(destDir, { recursive: true });
@@ -52,7 +52,7 @@ const optsSet = Object.entries(_optsSet).map(([name, config]) => {
       await buildStickerPacks({
         resourceProviderModule: FileSystemResourceProvider.moduleName,
         moduleOptions: opts,
-        // showProgress: true,
+        showProgress: true,
       });
     } catch (e) {
       console.error(e);

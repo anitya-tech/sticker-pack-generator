@@ -43,7 +43,7 @@ export const wechatExplorter: Exporter<{ border?: number }> = {
     const index = `${h.sticker.index}`.padStart(2, "0");
 
     const sticker = await h.workbench.transform({
-      border: h.packOpts.border || preset.border,
+      border: h.packOpts.border ?? preset.border,
       maxSize: preset.maxSize,
       heroSize: preset.heroSize,
     });

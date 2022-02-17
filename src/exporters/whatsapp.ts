@@ -21,7 +21,7 @@ export const whatsappExplorter: Exporter<{ border?: number }> = {
   },
   async export(h) {
     const sticker = await h.workbench.transform({
-      border: h.packOpts.border || preset.border,
+      border: h.packOpts.border ?? preset.border,
       maxSize: preset.maxSize,
       heroSize: preset.heroSize,
     });

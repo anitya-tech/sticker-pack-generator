@@ -57,7 +57,7 @@ export class FileSystemResourceProvider implements ResourceProvider {
     });
   }
   loadResource(resId: string): Promise<Buffer> {
-    return (fileCache[resId] = fileCache[resId] || fs.readFile(resId));
+    return (fileCache[resId] = fileCache[resId] ?? fs.readFile(resId));
   }
   async saveResource(
     pckerId: string,
@@ -65,7 +65,7 @@ export class FileSystemResourceProvider implements ResourceProvider {
     name: string,
     data: Buffer
   ): Promise<string> {
-    const dir = path.resolve(this.opts.destDir, pckerId, category || "");
+    const dir = path.resolve(this.opts.destDir, pckerId, category ?? "");
     await fs.mkdir(dir, { recursive: true });
     const file = path.resolve(dir, name);
     await fs.writeFile(file, data);
@@ -81,9 +81,9 @@ export class FileSystemResourceProvider implements ResourceProvider {
         return {
           ...opts,
           platform: opts.platform,
-          packId: opts.packId || opts.platform,
-          name: opts.name || this.opts.name,
-          description: opts.description || this.opts.description,
+          packId: opts.packId ?? opts.platform,
+          name: opts.name ?? this.opts.name,
+          description: opts.description ?? this.opts.description,
         };
       })
     );

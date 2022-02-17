@@ -19,7 +19,7 @@ export class ImageWorkbench {
   }
   get imageAnalyzer() {
     return (this._imageAnalyzer =
-      this._imageAnalyzer ||
+      this._imageAnalyzer ??
       this.origin
         .raw()
         .toBuffer({ resolveWithObject: true })
@@ -31,7 +31,7 @@ export class ImageWorkbench {
     color?: string;
     blurSize?: number;
   }) {
-    const color = border.color || "white";
+    const color = border.color ?? "white";
     const size = border.size;
     const ia = await this.imageAnalyzer;
 
